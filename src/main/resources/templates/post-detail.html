@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko"
+      th:replace="~{layout :: layout(~{::body})}">
+<head>
+    <title>글 상세 - StudyLog</title>
+</head>
+<body class="mt-4">
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <button class="btn btn-outline-secondary btn-sm" onclick="goBack()">
+        ← 목록으로
+    </button>
+    <a href="/mypage" class="btn btn-primary btn-sm">마이페이지</a>
+</div>
+
+<div id="post-detail" class="mb-3">
+    <!-- 글 내용이 여기 렌더링 됨 -->
+</div>
+
+<div class="mb-4">
+    <button class="btn btn-outline-primary" id="bookmark-btn" onclick="toggleBookmark()">북마크 추가</button>
+</div>
+
+<script>
+    let postId = null;
+
+    function getPostIdFromUrl() {
+        const path = window.location.pathname; // /posts/1
+        const parts = path.split('/');
+        return parts[parts.length - 1];
+    }
+
+    function formatDateTime(dateTimeStr) {
+        if (!dateTimeStr) return '';
+        return dateTimeStr.replace('T', ' ').slice(0, 16);
+    }
+
+    function goBack() {
+        if (document.referrer && document.referrer.startsWith(window.location.origin)) {
+            window.history.back();
+        } else {
+            window.location.href = '/';
+        }
+    }
+
+    async function loadPost() {
+        postId = getPostIdFromUrl();
+
+        try {
+            const post = await apiFetch('/api/posts/' + postId);
+
+            const tags = (post.tags || '')
+                .split(',')
+                .map(t => t.trim())
+                .filter(t => t.length > 0)
+                .map(t => `<span class="badge badge-light mr-1">#${t}</span>`)
+                .join(' ');
+
+            const container = document.getElementById('post-detail');
+            container.innerHTML = `
+                <h2 class="mb-2">${post.title}</h2>
+                <h6 class="text-muted mb-2">
+                    ${post.category || '카테고리 없음'}
+                    ${tags ? ' · ' + tags : ''}
+                </h6>
+                <p class="text-muted small mb-3">
+                    작성자: ${post.authorEmail || '익명'}<br>
+                    작성일: ${formatDateTime(post.createdAt)}
+                    ${post.modifiedAt ? ' · 수정일: ' + formatDateTime(post.modifiedAt) : ''}
+                </p>
+                <hr>
+                <div style="white-space: pre-wrap; line-height: 1.6;">
+                    ${post.content || ''}
+                </div>
+            `;
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    async function toggleBookmark() {
+        const token = localStorage.getItem('accessToken');
+        if (!token) {
+            alert('북마크를 사용하려면 로그인이 필요합니다.');
+            window.location.href = '/login';
+            return;
+        }
+
+        try {
+            await apiFetch('/api/bookmarks/' + postId, { method: 'POST' });
+            alert('북마크가 추가되었습니다. (중복 요청은 무시됩니다)');
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadPost);
+</script>
+
+</body>
+</html>

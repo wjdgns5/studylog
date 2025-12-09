@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko"
+      th:replace="~{layout :: layout(~{::body})}">
+<head>
+    <title>공개 글 목록 - StudyLog</title>
+</head>
+<body class="mt-4">
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h2 class="mb-1">📚 공개 글 목록</h2>
+        <small class="text-muted">
+            다른 사람들의 공부 기록을 보면서 같이 성장해 보세요.
+        </small>
+    </div>
+    <div>
+        <a href="/mypage" class="btn btn-primary btn-sm">내 공부 기록 보러가기</a>
+    </div>
+</div>
+
+<!-- 검색 영역 -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form id="search-form" class="form-row">
+            <div class="form-group col-md-4">
+                <label for="search-keyword">키워드</label>
+                <input type="text" id="search-keyword" class="form-control"
+                       placeholder="제목/내용 검색">
+            </div>
+            <div class="form-group col-md-3">
+                <label for="search-category">카테고리</label>
+                <input type="text" id="search-category" class="form-control"
+                       placeholder="예: 스프링, 자바">
+            </div>
+            <div class="form-group col-md-3">
+                <label for="search-tag">태그</label>
+                <input type="text" id="search-tag" class="form-control"
+                       placeholder="예: jwt, algorithm">
+            </div>
+            <div class="form-group col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-outline-primary btn-block">
+                    검색
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 글 목록 영역 -->
+<div id="posts-list">
+    <!-- 글 카드들이 여기에 렌더링됨 -->
+</div>
+
+<!-- 페이지네이션 -->
+<div class="d-flex justify-content-between align-items-center mt-4" id="pagination-area" style="display: none;">
+    <button class="btn btn-outline-secondary btn-sm" id="btn-prev" onclick="prevPage()">이전</button>
+    <span class="text-muted" id="page-info"></span>
+    <button class="btn btn-outline-secondary btn-sm" id="btn-next" onclick="nextPage()">다음</button>
+</div>
+
+<script>
+    let currentPage = 0;
+    let totalPages = 0;
+    const pageSize = 10;
+
+    function formatDateTime(dateTimeStr) {
+        if (!dateTimeStr) return '';
+        // "2025-12-09T12:34:56" → "2025-12-09 12:34"
+        return dateTimeStr.replace('T', ' ').slice(0, 16);
+    }
+
+    function renderPosts(posts) {
+        const listDiv = document.getElementById('posts-list');
+        listDiv.innerHTML = '';
+
+        if (!posts || posts.length === 0) {
+            listDiv.innerHTML = `
+                <div class="text-center text-muted py-5">
+                    아직 등록된 공개 글이 없습니다.
+                </div>
+            `;
+            document.getElementById('pagination-area').style.display = 'none';
+            return;
+        }
+
+        posts.forEach(post => {
+            const card = document.createElement('div');
+            card.className = 'card mb-3';
+
+            const tags = (post.tags || '')
+                .split(',')
+                .map(t => t.trim())
+                .filter(t => t.length > 0)
+                .map(t => `<span class="badge badge-light mr-1">#${t}</span>`)
+                .join(' ');
+
+            card.innerHTML = `
+                <div class="card-body">
+                    <h5 class="card-title mb-1">
+                        <a href="/posts/${post.id}">${post.title}</a>
+                    </h5>
+                    <h6 class="card-subtitle mb-2 text-muted">
+                        ${post.category || '카테고리 없음'}
+                        ${tags ? ' · ' + tags : ''}
+                    </h6>
+                    <p class="card-text text-truncate" style="max-width: 100%;">
+                        ${post.preview || post.content || ''}
+                    </p>
+                    <small class="text-muted">
+                        작성자: ${post.authorEmail || '익명'}
+                        · 작성일: ${formatDateTime(post.createdAt)}
+                    </small>
+                </div>
+            `;
+            listDiv.appendChild(card);
+        });
+    }
+
+    function renderPagination() {
+        const area = document.getElementById('pagination-area');
+        const pageInfo = document.getElementById('page-info');
+        const btnPrev = document.getElementById('btn-prev');
+        const btnNext = document.getElementById('btn-next');
+
+        if (totalPages <= 1) {
+            area.style.display = 'none';
+            return;
+        }
+
+        area.style.display = 'flex';
+        pageInfo.innerText = `페이지 ${currentPage + 1} / ${totalPages}`;
+
+        btnPrev.disabled = currentPage === 0;
+        btnNext.disabled = currentPage + 1 >= totalPages;
+    }
+
+    async function loadPosts(page = 0) {
+        const keyword = document.getElementById('search-keyword').value.trim();
+        const category = document.getElementById('search-category').value.trim();
+        const tag = document.getElementById('search-tag').value.trim();
+
+        const params = new URLSearchParams();
+        params.set('page', page);
+        params.set('size', pageSize);
+        if (keyword) params.set('keyword', keyword);
+        if (category) params.set('category', category);
+        if (tag) params.set('tag', tag);
+
+        const url = '/api/posts/public?' + params.toString();
+
+        try {
+            const data = await apiFetch(url); // layout.html에 있는 공통 apiFetch 사용
+            // data가 Spring Page 형태라고 가정: { content, totalPages, number, ... }
+            currentPage = data.number || 0;
+            totalPages = data.totalPages || 1;
+
+            renderPosts(data.content || []);
+            renderPagination();
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    function prevPage() {
+        if (currentPage > 0) {
+            loadPosts(currentPage - 1);
+        }
+    }
+
+    function nextPage() {
+        if (currentPage + 1 < totalPages) {
+            loadPosts(currentPage + 1);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const form = document.getElementById('search-form');
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            loadPosts(0);
+        });
+
+        loadPosts(0);
+    });
+</script>
+
+</body>
+</html>

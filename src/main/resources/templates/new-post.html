@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>새 글 작성</title>
+    <link rel="stylesheet"
+          href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body class="container mt-5">
+
+<h2 class="mb-4">새 글 작성</h2>
+
+<form id="post-form">
+    <div class="form-group">
+        <label for="title">제목</label>
+        <input type="text" class="form-control" id="title" required>
+    </div>
+
+    <div class="form-group">
+        <label for="content">내용</label>
+        <textarea class="form-control" id="content" rows="8" required></textarea>
+    </div>
+
+    <div class="form-group">
+        <label for="category">카테고리 (예: 자바, 스프링, 알고리즘)</label>
+        <input type="text" class="form-control" id="category">
+    </div>
+
+    <div class="form-group">
+        <label for="tags">태그 (쉼표로 구분, 예: spring,jwt,security)</label>
+        <input type="text" class="form-control" id="tags">
+    </div>
+
+    <div class="form-group form-check">
+        <input type="checkbox" class="form-check-input" id="private">
+        <label class="form-check-label" for="private">비공개 (나만 보기)</label>
+    </div>
+
+    <button type="submit" class="btn btn-primary">등록</button>
+    <a href="/mypage" class="btn btn-secondary">취소</a>
+</form>
+
+<script>
+    async function apiFetch(url, options = {}) {
+        const token = localStorage.getItem('accessToken');
+
+        const headers = options.headers || {};
+        if (token) {
+            headers['Authorization'] = 'Bearer ' + token;
+        }
+        if (!headers['Content-Type'] && options.body) {
+            headers['Content-Type'] = 'application/json';
+        }
+
+        const response = await fetch(url, {
+            ...options,
+            headers
+        });
+
+        if (!response.ok) {
+            const text = await response.text();
+            try {
+                const err = JSON.parse(text);
+                alert('에러: ' + err.message);
+            } catch (e) {
+                alert('요청 실패: ' + response.status);
+            }
+            throw new Error('Request failed: ' + response.status);
+        }
+
+        if (response.status === 204) {
+            return null;
+        }
+
+        return response.json();
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const token = localStorage.getItem('accessToken');
+        if (!token) {
+            alert('로그인이 필요합니다.');
+            window.location.href = '/login';
+            return;
+        }
+
+        const form = document.getElementById('post-form');
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const title = document.getElementById('title').value;
+            const content = document.getElementById('content').value;
+            const category = document.getElementById('category').value;
+            const tags = document.getElementById('tags').value;
+            const isPrivate = document.getElementById('private').checked;
+
+            try {
+                await apiFetch('/api/posts', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        title,
+                        content,
+                        category,
+                        tags,
+                        private: isPrivate
+                    })
+                });
+
+                alert('글이 등록되었습니다.');
+                window.location.href = '/mypage';
+
+            } catch (err) {
+                console.error(err);
+            }
+        });
+    });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,23 @@
+#spring.application.name=studylog
+spring:
+  datasource:
+    url: jdbc:h2:mem:studylog;MODE=MySQL;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  h2:
+    console:
+      enabled: true
+
+jwt:
+  secret: "thisIsASecretKeyForStudyLogProjectAtLeast32Chars"
+  access-token-validity-in-seconds: 3600  # 1??
